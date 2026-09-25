@@ -1,0 +1,13 @@
+# 编译产物
+build/
+sdkconfig.old
+dependencies.lock
+
+# IDF 组件管理器拉下来的（本工程不需要组件，留着以防万一）
+managed_components/
+
+# 测试脚本的临时文件（写/读用的 bin）
+_ocd/
+
+# 每台机器自己的配置（探针 IP / 串口号）
+local.env.ps1

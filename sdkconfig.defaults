@@ -1,0 +1,46 @@
+# ============================================================
+#  cherrydap_s31_wifi —— ESP32-S31-Function-CoreBoard-1
+#  **无线** CMSIS-DAP 探针：WiFi + TCP，SWD 走 dedicated GPIO + 展开汇编
+#
+#  链路：OpenOCD ──(cmsis-dap backend tcp)──> S31 ──(SWD 17~22MHz)──> 目标
+#  与 cherrydap_s31_fast 的唯一区别是传输层（USB bulk → WiFi/TCP），
+#  SWD 位时序层是同一份未改动的代码。
+# ============================================================
+
+CONFIG_IDF_TARGET="esp32s31"
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_BOOTLOADER_LOG_LEVEL_WARN=y
+CONFIG_BOOTLOADER_LOG_LEVEL=2
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+CONFIG_FREERTOS_HZ=1000
+
+# 控制台：UART0(GPIO58/59) + USB-Serial/JTAG(GPIO33/34 → 本机 COM23)
+# 无线探针不占 USB-HS，所以烧录/看日志仍然走 USB-DBG，和 WiFi 互不干扰
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
+
+# ---------- WiFi ----------
+# 省电模式在代码里显式关掉（esp_wifi_set_ps(WIFI_PS_NONE)）：
+# 省电会让响应晚几毫秒到几十毫秒，而 OpenOCD 那边有 tcp min_timeout 兜着，
+# 一旦超时就报 "command mismatch"。这里再把驱动侧的几个池放大一点，够用即可。
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+CONFIG_ESP_WIFI_TX_BUFFER_TYPE=1
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=y
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=y
+
+# ---------- lwIP：TCP 要跑得干脆 ----------
+CONFIG_LWIP_MAX_SOCKETS=8
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=11680
+CONFIG_LWIP_TCP_WND_DEFAULT=11680
+# 关掉 Nagle：CMSIS-DAP 是一问一答，攒包只会白白加几十毫秒
+CONFIG_LWIP_TCP_NODELAY_DISABLED=n
+
+# ---------- 看门狗 ----------
+# 任务看门狗：SWD 位时序期间任务不让出 CPU（一次 TransferBlock 几毫秒），按惯例关掉
+CONFIG_ESP_TASK_WDT_EN=n
+# ⚠️ 与 USB 版不同，这里**保留中断看门狗**：位时序关中断的窗口只有一次 SWD 传输
+#    （~3µs，最长 SWJ_Sequence ~5µs），离 300ms 差得远；而 WiFi 驱动万一卡死，
+#    中断看门狗能把它抓出来（USB 版之所以关掉，是因为那边有几十 ms 的关中断窗口）。

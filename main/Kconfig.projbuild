@@ -1,0 +1,32 @@
+menu "CherryDAP 无线探针"
+
+config CHERRYDAP_WIFI_SSID
+    string "要加入的 WiFi 名称（SSID）"
+    default ""
+    help
+        留空 = 探针自己开热点（SoftAP），电脑连上后 OpenOCD 连 192.168.4.1。
+        填了 = STA 模式加入现有网络（DHCP 拿 IP，串口日志里会打出来）。
+
+        ⚠️ 不要把真实密码写进 sdkconfig.defaults（那个文件进 git）！
+        改本工程的 sdkconfig（**已被 .gitignore 排除**），或者在命令行上临时覆盖。
+
+config CHERRYDAP_WIFI_PASSWORD
+    string "要加入的 WiFi 密码"
+    default ""
+
+config CHERRYDAP_AP_SSID
+    string "SoftAP 热点名"
+    default "CherryDAP-S31"
+
+config CHERRYDAP_AP_PASSWORD
+    string "SoftAP 密码（WPA2 要求 ≥8 字符；留空 = 开放热点）"
+    default "cherrydap"
+
+config CHERRYDAP_TCP_PORT
+    int "CMSIS-DAP over TCP 端口"
+    range 1 65535
+    default 4441
+    help
+        OpenOCD 那边用 `cmsis-dap tcp port <端口>` 对应（默认 4441）。
+
+endmenu
